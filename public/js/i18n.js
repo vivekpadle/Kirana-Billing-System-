@@ -342,7 +342,7 @@
     // ---- server messages
     ['Invalid username or password', 'यूज़रनेम या पासवर्ड ग़लत है', 'युजरनेम किंवा पासवर्ड चुकीचा आहे'],
     ['This account is disabled. Contact the owner.', 'यह खाता बंद है। मालिक से संपर्क करें।', 'हे खाते बंद आहे. मालकाशी संपर्क साधा.'],
-    ['This account is not a {role} account', 'यह {role} का खाता नहीं है', 'हे {role} चे खाते नाही'],
+    ['This account is not an {role} account', 'यह {role} का खाता नहीं है', 'हे {role} चे खाते नाही'],
     ['Too many attempts. Try again in 15 minutes.', 'बहुत ज़्यादा प्रयास। 15 मिनट बाद फिर कोशिश करें।', 'खूप प्रयत्न झाले. 15 मिनिटांनी पुन्हा प्रयत्न करा.'],
     ['Please log in', 'कृपया लॉगिन करें', 'कृपया लॉगिन करा'],
     ['You do not have permission for this action', 'आपको यह करने की अनुमति नहीं है', 'तुम्हाला हे करण्याची परवानगी नाही'],
@@ -381,7 +381,7 @@
   // dynamic server messages → template keys
   const PATTERNS = [
     [/^Not enough stock for (.+) \(available (.+)\)$/, 'Not enough stock for {name} (available {n})', ['name', 'n']],
-    [/^This account is not a (\w+) account$/, 'This account is not a {role} account', ['role']],
+    [/^This account is not an? (\w+) account$/, 'This account is not an {role} account', ['role']],
     [/^Amount is more than the due balance \(₹(.+)\)$/, 'Amount is more than the due balance (₹{v})', ['v']],
   ];
 

@@ -79,7 +79,7 @@ function createApp(db, opts = {}) {
       throw new HttpError(401, 'Invalid username or password');
     }
     if (!user.active) throw new HttpError(403, 'This account is disabled. Contact the owner.');
-    if (body.role && body.role !== user.role) throw new HttpError(403, `This account is not a ${body.role} account`);
+    if (body.role && body.role !== user.role) throw new HttpError(403, `This account is not an ${body.role} account`);
     failures.delete(key);
     const token = auth.createSession(db, user.id);
     const secure = req.headers['x-forwarded-proto'] === 'https' || req.socket.encrypted ? '; Secure' : '';

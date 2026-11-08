@@ -223,11 +223,15 @@
     const nav = NAV.find((n) => n.id === id);
     if (!nav || !can(nav.perm)) id = 'pos';
     $$('[data-nav]').forEach((a) => a.classList.toggle('active', a.dataset.nav === id));
-    const view = $('#view');
+    // a fresh container per page: a slow, older page that finishes loading late
+    // then draws into a detached element instead of over the page now on screen
+    const old = $('#view');
+    const view = old.cloneNode(false);
+    old.replaceWith(view);
     view.innerHTML = `<div class="loading"><div class="spinner"></div>${t('Loading…')}</div>`;
     $('#modal-root').innerHTML = '';
     window.scrollTo(0, 0);
-    try { await VIEWS[id](view, arg); } catch (e) { view.innerHTML = `<div class="card empty">⚠️ ${esc(e.message)}</div>`; }
+    try { await VIEWS[id](view, arg); } catch (e) { if (view.isConnected) view.innerHTML = `<div class="card empty">⚠️ ${esc(e.message)}</div>`; }
   }
   window.addEventListener('hashchange', route);
 
@@ -235,6 +239,7 @@
   VIEWS.dashboard = async (view) => {
     setTitle(t('Dashboard'), `<a class="btn primary" href="#/pos">＋ ${t('New Bill')}</a>`);
     const d = await api('/dashboard');
+    if (!view.isConnected) return; 
     const payMap = Object.fromEntries(d.payments_today.map((p) => [p.mode, p.amount]));
     const max = Math.max(1, ...(d.last7 || []).map((x) => x.sales));
     const days = [];
@@ -286,6 +291,7 @@
       </div>
       <button class="cart-fab" id="cart-fab"></button>`;
     const [products, cats] = await Promise.all([api('/products'), api('/products/categories')]);
+    if (!view.isConnected) return; 
     state.products = products;
     // refresh product data in cart (prices/stock may have changed)
     for (const [id, line] of state.cart) { const p = products.find((x) => x.id === id); if (p) line.product = p; else state.cart.delete(id); }
@@ -653,10 +659,12 @@
     $('#bstatus').value = f.status;
     let rows = [];
     const load = async () => {
+      if (!view.isConnected) return; 
       Object.assign(f, { q: $('#bq').value.trim(), from: $('#bfrom').value, to: $('#bto').value, status: $('#bstatus').value });
       store.set('billFilter', f);
       const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v));
       rows = await api('/bills?' + qs);
+      if (!view.isConnected) return; 
       const live = rows.filter((r) => r.status !== 'cancelled');
       const total = live.reduce((s, r) => s + r.total, 0);
       $('#bills-list').innerHTML = rows.length ? `
@@ -696,8 +704,10 @@
     let tab = arg === 'low' ? 'low' : 'all';
     let products = [];
     const cats = await api('/products/categories');
+    if (!view.isConnected) return; 
     $('#pcat').innerHTML += cats.map((c) => `<option>${esc(c.category)}</option>`).join('');
     const draw = () => {
+      if (!view.isConnected) return; 
       $$('[data-tab]', view).forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
       const q = $('#pq').value.trim().toLowerCase(); const cat = $('#pcat').value;
       const list = products.filter((p) => (tab === 'inactive' ? !p.active : p.active) && (tab !== 'low' || p.stock <= p.low_stock) && (!cat || p.category === cat) &&
@@ -816,8 +826,10 @@
       <div class="toolbar"><input class="input" id="cq" placeholder="${t('Search name or mobile')}"><label class="check"><input type="checkbox" id="cdue"> ${t('Only with udhaar due')}</label></div>
       <div class="card" id="clist"></div>`;
     const load = async () => {
+      if (!view.isConnected) return; 
       const qs = new URLSearchParams({ q: $('#cq').value.trim(), due: $('#cdue').checked ? '1' : '' });
       const list = await api('/customers?' + qs);
+      if (!view.isConnected) return; 
       const due = list.reduce((s, c) => s + Math.max(0, c.balance), 0);
       $('#clist').innerHTML = list.length ? `
         <div class="card-head"><h3>${t('{n} customers', { n: list.length })}</h3><span>${t('Total due')} <b style="color:var(--danger)">${money(due)}</b></span></div>
@@ -920,7 +932,9 @@
       </div>
       <div id="rbody"></div>`;
     const load = async () => {
+      if (!view.isConnected) return; 
       const r = await api(`/reports?from=${$('#rfrom').value}&to=${$('#rto').value}`);
+      if (!view.isConnected) return; 
       const s = r.summary;
       const pm = {};
       for (const p of r.payments) { pm[p.mode] = pm[p.mode] || { sale: 0, due_collection: 0, refund: 0 }; pm[p.mode][p.kind] = p.amount; }
@@ -964,6 +978,7 @@
     setTitle(t('Staff & Users'), `<button class="btn primary" id="add-user">＋ ${t('Add user')}</button>`);
     const load = async () => {
       const users = await api('/users');
+      if (!view.isConnected) return; 
       view.innerHTML = `
         <div class="card card-pad small muted" style="margin-bottom:14px">
           <b>${t('Admin')}</b> — ${t('full control incl. admin accounts')} · <b>${t('Owner')}</b> — ${t('everything in the shop: inventory, reports, staff, settings')} ·
