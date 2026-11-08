@@ -44,6 +44,11 @@
     ['First-time default logins', 'पहली बार के डिफ़ॉल्ट लॉगिन', 'पहिल्या वेळचे डीफॉल्ट लॉगिन'],
     ['Change these passwords after logging in.', 'लॉगिन के बाद ये पासवर्ड बदल दें।', 'लॉगिन केल्यानंतर हे पासवर्ड बदला.'],
 
+    ['Demo — try it with these logins', 'डेमो — इन लॉगिन से आज़माएं', 'डेमो — या लॉगिनने वापरून पहा'],
+    ['Demo version — try freely. All data resets automatically every few hours.', 'डेमो संस्करण — बेझिझक आज़माएं। सारा डेटा हर कुछ घंटों में अपने आप रीसेट हो जाता है।', 'डेमो आवृत्ती — मोकळेपणाने वापरून पहा. सर्व माहिती दर काही तासांनी आपोआप रीसेट होते.'],
+    ['Password changes are disabled in the demo', 'डेमो में पासवर्ड नहीं बदला जा सकता', 'डेमोमध्ये पासवर्ड बदलता येत नाही'],
+    ['Demo login accounts cannot be changed', 'डेमो लॉगिन खाते बदले नहीं जा सकते', 'डेमो लॉगिन खाती बदलता येत नाहीत'],
+
     // ---- navigation
     ['Dashboard', 'डैशबोर्ड', 'डॅशबोर्ड'],
     ['New Bill', 'नया बिल', 'नवीन बिल'],

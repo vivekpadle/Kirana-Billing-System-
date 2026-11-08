@@ -189,6 +189,102 @@ function seed(db) {
   }
 }
 
+// ------------------------------------------------------------------ demo data
+const DEMO_CUSTOMERS = [
+  ['Ramesh Patil', '9822011111'], ['Sunita Joshi', '9822022222'], ['Anil Sharma', '9822033333'],
+  ['Meena Kulkarni', '9822044444'], ['Vijay Deshmukh', '9822055555'],
+];
+
+function rng(seed) { // small deterministic PRNG so every demo reset looks the same
+  return () => { seed |= 0; seed = (seed + 0x6d2b79f5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+const pad = (n) => String(n).padStart(2, '0');
+const sqlTime = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+const r2 = (n) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+/** Fill an empty shop with a week of realistic sales so a demo looks alive. */
+function seedDemo(db) {
+  if (db.prepare('SELECT COUNT(*) c FROM bills').get().c > 0) return;
+  const rand = rng(42);
+  const pick = (a) => a[Math.floor(rand() * a.length)];
+  const users = db.prepare('SELECT id, role FROM users').all();
+  const staff = users.filter((u) => u.role !== 'admin');
+  // bigger shelves for a demo so sales don't empty them (keep one item low to show the alert)
+  db.exec("UPDATE products SET stock = stock * 4 WHERE stock > low_stock");
+  const products = db.prepare('SELECT * FROM products WHERE active = 1').all();
+  const custIds = DEMO_CUSTOMERS.map(([n, p]) => Number(db.prepare('INSERT INTO customers (name, phone) VALUES (?, ?)').run(n, p).lastInsertRowid));
+
+  const insBill = db.prepare(`INSERT INTO bills (bill_no, customer_id, customer_name, customer_phone, user_id, subtotal, discount, tax, total, paid, due,
+    change_returned, payment_mode, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`);
+  const insItem = db.prepare('INSERT INTO bill_items (bill_id, product_id, name, unit, qty, price, cost, gst_rate, amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
+  const insPay = db.prepare("INSERT INTO payments (bill_id, customer_id, amount, mode, kind, user_id, created_at) VALUES (?, ?, ?, ?, 'sale', ?, ?)");
+  const decStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?');
+  const move = db.prepare("INSERT INTO stock_moves (product_id, change, reason, ref, user_id, created_at) VALUES (?, ?, 'sale', ?, ?, ?)");
+  const addDue = db.prepare('UPDATE customers SET balance = round(balance + ?, 2) WHERE id = ?');
+  const stock = new Map(products.map((p) => [p.id, p.stock]));
+  const now = new Date();
+  let seq = 0;
+
+  tx(db, () => {
+    for (let day = 6; day >= 0; day--) {
+      const count = 6 + Math.floor(rand() * 7);
+      const times = [];
+      for (let i = 0; i < count; i++) {
+        const d = new Date(now); d.setDate(d.getDate() - day);
+        d.setHours(8 + Math.floor(rand() * 13), Math.floor(rand() * 60), Math.floor(rand() * 60), 0);
+        if (d < now) times.push(d);
+      }
+      times.sort((a, b) => a - b);
+      for (const when of times) {
+        const lines = new Map();
+        const n = 1 + Math.floor(rand() * 5);
+        for (let i = 0; i < n; i++) {
+          const p = pick(products);
+          const loose = ['kg', 'l'].includes(p.unit);
+          const qty = loose ? pick([0.5, 1, 1, 2, 5]) : 1 + Math.floor(rand() * 3);
+          if ((stock.get(p.id) || 0) - ((lines.get(p.id)?.qty) || 0) - qty < p.low_stock) continue;
+          const l = lines.get(p.id) || { p, qty: 0 }; l.qty += qty; lines.set(p.id, l);
+        }
+        if (!lines.size) continue;
+        let subtotal = 0; let tax = 0;
+        for (const l of lines.values()) { const amt = r2(l.p.price * l.qty); subtotal += amt; tax += l.p.gst_rate ? amt * l.p.gst_rate / (100 + l.p.gst_rate) : 0; }
+        subtotal = r2(subtotal);
+        const discount = subtotal > 500 && rand() < 0.3 ? 10 : 0;
+        const total = r2(subtotal - discount);
+        const roll = rand();
+        const custId = roll < 0.25 ? pick(custIds) : null;
+        const cust = custId ? DEMO_CUSTOMERS[custIds.indexOf(custId)] : null;
+        const mode = custId && roll < 0.12 ? 'credit' : roll < 0.55 ? 'cash' : roll < 0.9 ? 'upi' : 'card';
+        const paid = mode === 'credit' ? (rand() < 0.5 ? 0 : r2(Math.floor(total / 2))) : total;
+        const due = r2(total - paid);
+        const user = pick(staff);
+        const ts = sqlTime(when);
+        const billNo = `PK-${String(++seq).padStart(6, '0')}`;
+        const status = due > 0 ? (paid > 0 ? 'partial' : 'credit') : 'paid';
+        const payMode = mode === 'credit' ? (paid > 0 ? 'cash+credit' : 'credit') : mode;
+        const billId = Number(insBill.run(billNo, custId, cust?.[0] || null, cust?.[1] || null, user.id, subtotal, discount, r2(tax * total / subtotal),
+          total, paid, due, payMode, status, ts).lastInsertRowid);
+        for (const l of lines.values()) {
+          insItem.run(billId, l.p.id, l.p.name, l.p.unit, l.qty, l.p.price, l.p.cost, l.p.gst_rate, r2(l.p.price * l.qty));
+          decStock.run(l.qty, l.p.id); stock.set(l.p.id, stock.get(l.p.id) - l.qty);
+          move.run(l.p.id, -l.qty, billNo, user.id, ts);
+        }
+        if (paid > 0) insPay.run(billId, custId, paid, mode === 'credit' ? 'cash' : mode, user.id, ts);
+        if (due > 0) addDue.run(due, custId);
+      }
+    }
+  });
+}
+
+/** Wipe everything and rebuild the demo shop (used by DEMO_MODE's periodic reset). */
+function resetDemo(db) {
+  db.exec(`DELETE FROM payments; DELETE FROM bill_items; DELETE FROM bills; DELETE FROM stock_moves; DELETE FROM sessions;
+           DELETE FROM customers; DELETE FROM products; DELETE FROM users; DELETE FROM settings; DELETE FROM sqlite_sequence;`);
+  seed(db);
+  seedDemo(db);
+}
+
 /** Run fn inside a transaction (node:sqlite has no helper). */
 function tx(db, fn) {
   db.exec('BEGIN IMMEDIATE');
@@ -202,4 +298,4 @@ function tx(db, fn) {
   }
 }
 
-module.exports = { open, tx, DB_FILE };
+module.exports = { open, tx, seedDemo, resetDemo, DB_FILE };

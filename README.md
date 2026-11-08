@@ -64,15 +64,46 @@ The first start also adds some sample kirana items so you can try billing. Remov
 | `DATA_DIR` | `./data` | Folder for the database file `pise-kirana.db` |
 | `ADMIN_USER` / `ADMIN_PASS` | `admin` / `admin123` | First admin account (only used on a new database) |
 | `SEED_SAMPLE` | `1` | Set to `0` to skip sample items on a new database |
+| `DEMO_MODE` | off | Set to `1` for a public trial/demo (see below) |
+| `DEMO_RESET_HOURS` | `6` | How often demo data resets |
+| `TZ` | server's | Set to `Asia/Kolkata` on cloud hosts so dates/reports use Indian time |
 
 ### Backup
 
 All data is in one file: `data/pise-kirana.db`. Copy it (e.g. to a pen drive or Google Drive) daily.
 
-### Putting it online
+## Put a free demo online for customers to try
 
-To use it from anywhere (not just shop Wi-Fi), deploy to any Node.js host (a VPS, Render, Railway, etc.)
-with a persistent disk for `DATA_DIR`, and serve it over **HTTPS**.
+The app has a **demo mode** (`DEMO_MODE=1`) made for showing to customers:
+- a "Demo version" banner, and one-tap demo logins for Admin / Owner / Employee on the login screen
+- a week of realistic sample sales, customers and udhaar, so the dashboard and reports look real
+- visitors can't change the demo passwords or disable the demo logins (so nobody locks others out)
+- **all data resets automatically every 6 hours** (`DEMO_RESET_HOURS`), so every visitor sees a clean shop
+
+### Option A — Render (free, easiest, no server knowledge needed)
+
+1. Make sure this code is on the branch you want to deploy (e.g. merge it into `main`).
+2. Sign up at **https://render.com** with your GitHub account.
+3. Click **New → Blueprint**, choose this repository and branch, then **Apply**.
+   Render reads `render.yaml` and sets everything up (Node 22, India time zone, demo mode).
+4. After a few minutes you get a link like `https://pise-kirana-demo.onrender.com`. Share it with customers.
+
+Notes on the free plan: the app goes to sleep after ~15 minutes without visitors and the first visit after
+that takes ~30–60 seconds to wake up. Data is also wiped on every restart — fine for a demo.
+For no sleeping, choose a paid plan (Starter) in Render.
+
+### Option B — Docker (Railway, Fly.io, any VPS)
+
+```bash
+docker build -t pise-kirana .
+docker run -d -p 3000:3000 -e DEMO_MODE=1 -v pise-data:/data pise-kirana
+```
+
+### Real use by a shop (not a demo)
+
+Deploy the same way but **without** `DEMO_MODE`, keep a persistent disk for `/data` (`DATA_DIR`), use HTTPS,
+and change the three default passwords right after the first login.
+Give each shop its own copy (its own deployment and database).
 
 ## Tests
 

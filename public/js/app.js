@@ -116,16 +116,22 @@
             <label class="field">${t('Password')}<input class="input" name="password" type="password" autocomplete="current-password" required></label>
             <button class="btn primary lg block" type="submit" id="login-btn"></button>
           </form>
-          <div class="demo-hint">${t('First-time default logins')} — <b>admin / admin123</b>, <b>owner / owner123</b>, <b>employee / emp123</b>. ${t('Change these passwords after logging in.')}</div>
+          ${state.settings.demo ? `<div class="demo-hint"><b>🎯 ${t('Demo — try it with these logins')}</b>
+            <div class="row" style="margin-top:8px">${[['admin', 'admin123'], ['owner', 'owner123'], ['employee', 'emp123']].map(([u, pw]) => `<button type="button" class="btn sm" data-demo="${u}|${pw}"><b>${t(u[0].toUpperCase() + u.slice(1))}</b>&nbsp;· ${u} / ${pw}</button>`).join('')}</div></div>` : ''}
         </div>
       </div>`;
     const setRole = (r) => {
       role = r; store.set('lastRole', r);
       $$('.role-tabs button').forEach((b) => b.classList.toggle('active', b.dataset.role === r));
-      $('#login-btn').textContent = t('Login as {role}', { role: r });
+      $('#login-btn').textContent = t('Login as {role}', { role: r[0].toUpperCase() + r.slice(1) });
     };
     bindLang($('#login-lang'), renderLogin);
     $$('.role-tabs button').forEach((b) => (b.onclick = () => setRole(b.dataset.role)));
+    $$('[data-demo]').forEach((b) => (b.onclick = () => {
+      const [u, pw] = b.dataset.demo.split('|');
+      setRole(u); $('[name=username]').value = u; $('[name=password]').value = pw;
+      $('#login-form').requestSubmit();
+    }));
     setRole(role);
     $('#login-form').onsubmit = async (e) => {
       e.preventDefault();
@@ -166,6 +172,7 @@
           </div>
         </aside>
         <div class="main">
+          ${state.demo ? `<div class="demo-bar">🎯 ${t('Demo version — try freely. All data resets automatically every few hours.')}</div>` : ''}
           <header class="topbar">
             <div class="mobile-brand"><div class="brand-logo" style="width:34px;height:34px;font-size:15px;border-radius:9px">PK</div></div>
             <h1 id="page-title"></h1>
@@ -1057,10 +1064,11 @@
     try {
       const me = await api('/me');
       Object.assign(state, { user: me.user, perms: me.permissions, settings: me.settings });
+      try { state.demo = (await (await fetch('/api/public')).json()).demo; } catch { /* ignore */ }
       renderShell();
       route();
     } catch {
-      try { state.settings = await (await fetch('/api/public')).json(); } catch { state.settings = {}; }
+      try { state.settings = await (await fetch('/api/public')).json(); state.demo = state.settings.demo; } catch { state.settings = {}; }
       renderLogin();
     }
   }

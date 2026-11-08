@@ -1,0 +1,19 @@
+# Render Blueprint — one-click deploy of the Pise Kirana public demo.
+# Render dashboard → New → Blueprint → pick this repo. (Free plan; data resets, which is fine for a demo.)
+services:
+  - type: web
+    name: pise-kirana-demo
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: TZ
+        value: Asia/Kolkata
+      - key: DEMO_MODE
+        value: "1"
+      - key: DEMO_RESET_HOURS
+        value: "6"

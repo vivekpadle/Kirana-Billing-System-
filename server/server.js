@@ -50,7 +50,10 @@ function readBody(req, limit = 1_000_000) {
 }
 
 // ---------------------------------------------------------------- router
-function createApp(db) {
+function createApp(db, opts = {}) {
+  // demo mode: public trial instance — shows demo logins, protects them, resets data periodically
+  const demo = opts.demo ?? process.env.DEMO_MODE === '1';
+  const DEMO_USERS = ['admin', 'owner', 'employee'];
   const routes = [];
   const route = (method, pattern, perm, handler) => {
     const keys = [];
@@ -95,6 +98,7 @@ function createApp(db) {
   }));
 
   route('POST', '/api/me/password', 'auth', ({ user, body }) => {
+    if (demo && DEMO_USERS.includes(user.username)) throw new HttpError(403, 'Password changes are disabled in the demo');
     const row = db.prepare('SELECT password_hash FROM users WHERE id = ?').get(user.id);
     if (!auth.verifyPassword(String(body.current || ''), row.password_hash)) throw new HttpError(400, 'Current password is wrong');
     if (String(body.password || '').length < 6) throw new HttpError(400, 'New password must be at least 6 characters');
@@ -105,7 +109,10 @@ function createApp(db) {
   // ---------------- settings
   route('GET', '/api/settings', 'auth', () => getSettings());
   // shop branding for the login screen (no login required)
-  route('GET', '/api/public', null, () => { const s = getSettings(); return { shop_name: s.shop_name, shop_tagline: s.shop_tagline }; });
+  route('GET', '/api/public', null, () => {
+    const s = getSettings();
+    return { shop_name: s.shop_name, shop_tagline: s.shop_tagline, demo, next_reset: demo && opts.nextReset ? opts.nextReset() : null };
+  });
   route('PUT', '/api/settings', 'settings.edit', ({ body }) => {
     const up = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
     const allowed = ['shop_name', 'shop_tagline', 'shop_address', 'shop_phone', 'gstin', 'upi_id', 'bill_footer', 'allow_negative_stock'];
@@ -136,6 +143,7 @@ function createApp(db) {
   route('PUT', '/api/users/:id', 'users.manage', ({ user, params, body }) => {
     const target = db.prepare('SELECT * FROM users WHERE id = ?').get(params.id);
     if (!target) throw new HttpError(404, 'User not found');
+    if (demo && DEMO_USERS.includes(target.username)) throw new HttpError(403, 'Demo login accounts cannot be changed');
     assertCanManageRole(user, target.role);
     const role = body.role ? str(body.role, 20) : target.role; assertCanManageRole(user, role);
     const active = body.active == null ? target.active : (body.active ? 1 : 0);
@@ -511,6 +519,7 @@ function createApp(db) {
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'same-origin');
 
+    if (url.pathname === '/healthz') { res.writeHead(200, { 'Content-Type': 'text/plain' }); return res.end('ok'); }
     if (!url.pathname.startsWith('/api/')) return serveStatic(url.pathname, res);
 
     const send = (status, data) => {
@@ -571,13 +580,25 @@ if (require.main === module) {
   const db = DB.open();
   const PORT = Number(process.env.PORT) || 3000;
   const HOST = process.env.HOST || '0.0.0.0';
-  http.createServer(createApp(db)).listen(PORT, HOST, () => {
+  const demo = process.env.DEMO_MODE === '1';
+  let nextReset = null;
+  if (demo) {
+    const hours = Math.max(1, Number(process.env.DEMO_RESET_HOURS) || 6);
+    DB.seedDemo(db);
+    nextReset = Date.now() + hours * 3600e3;
+    setInterval(() => {
+      try { DB.resetDemo(db); console.log('Demo data reset'); } catch (e) { console.error('Demo reset failed', e); }
+      nextReset = Date.now() + hours * 3600e3;
+    }, hours * 3600e3).unref();
+  }
+  http.createServer(createApp(db, { demo, nextReset: () => nextReset })).listen(PORT, HOST, () => {
     console.log(`\n  Pise Kirana is running`);
     console.log(`  → On this computer:       http://localhost:${PORT}`);
     for (const addrs of Object.values(require('node:os').networkInterfaces())) {
       for (const a of addrs || []) if (a.family === 'IPv4' && !a.internal) console.log(`  → On phones (same Wi-Fi): http://${a.address}:${PORT}`);
     }
-    console.log(`  Database: ${DB.DB_FILE}\n`);
+    console.log(`  Database: ${DB.DB_FILE}${demo ? '  (DEMO MODE — data resets automatically)' : ''}`);
+    console.log('  Default logins on a new database: admin/admin123, owner/owner123, employee/emp123\n');
   });
 }
 
