@@ -1,0 +1,16 @@
+{
+  "name": "pise-kirana",
+  "version": "1.0.0",
+  "description": "Pise Kirana - Billing & Inventory Management System (admin, owner, employee roles)",
+  "main": "server/server.js",
+  "private": true,
+  "scripts": {
+    "start": "node --no-warnings server/server.js",
+    "dev": "node --no-warnings --watch server/server.js",
+    "test": "node --no-warnings --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT"
+}

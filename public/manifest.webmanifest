@@ -1,0 +1,11 @@
+{
+  "name": "Pise Kirana - Billing & Inventory",
+  "short_name": "Pise Kirana",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f7f4",
+  "theme_color": "#15803d",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
