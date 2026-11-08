@@ -22,6 +22,10 @@ It can also be installed on a phone's home screen like an app.
 | Shop settings (name, address, GSTIN, UPI ID, bill footer) | ✅ | ✅ | ❌ |
 
 Other highlights
+- **3 languages — English (default), हिंदी (Hindi), मराठी (Marathi).** Switch any time from the login screen,
+  the sidebar, the *More* menu on phones, or Settings. Each phone/computer remembers its own choice, so the
+  owner can use English while staff use Hindi or Marathi. Receipts, WhatsApp bills/reminders and error
+  messages follow the chosen language. Translations live in `public/js/i18n.js` and are easy to edit.
 - Loose items sold by weight (kg / g / litre) with quick-quantity buttons (¼ kg, ½ kg, 1 kg…)
 - GST-inclusive pricing with GST shown on receipt, discounts in ₹ or %
 - Low-stock alerts, stock value, profit margin per item
@@ -83,5 +87,6 @@ server/server.js   HTTP server + REST API (roles & permissions enforced here)
 server/db.js       SQLite schema, defaults, sample data
 server/auth.js     password hashing, sessions, role permissions
 public/            the web app (HTML/CSS/JS, no build step)
+public/js/i18n.js  English / Hindi / Marathi translations
 test/              API tests
 ```

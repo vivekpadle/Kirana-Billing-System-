@@ -305,3 +305,8 @@ html, body { overflow-x: hidden; }
 @media (max-width: 899px) { .pos { grid-template-columns: minmax(0, 1fr); } }
 a.btn { text-decoration: none; color: inherit; }
 a.btn.primary { color: #fff; }
+
+/* language picker */
+select.input.lang-select { width: auto; min-height: 34px; padding: 4px 8px; font-size: 13px; font-weight: 600; }
+.sidebar select.input.lang-select { width: 100%; }
+.login-card .brand .lang-select { align-self: flex-start; }
